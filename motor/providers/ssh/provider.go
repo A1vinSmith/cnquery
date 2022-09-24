@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -59,7 +60,7 @@ func New(pCfg *providers.Config) (*Provider, error) {
 	if pCfg.Sudo != nil && pCfg.Sudo.Active {
 		// the id command may not be available, eg. if ssh is used with windows
 		out, _ := t.RunCommand("id -u")
-		stdout, _ := ioutil.ReadAll(out.Stdout)
+		stdout, _ := io.ReadAll(out.Stdout)
 		// just check for the explicit positive case, otherwise just activate sudo
 		// we check sudo in VerifyConnection
 		if string(stdout) != "0" {
