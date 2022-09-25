@@ -33,6 +33,9 @@ type CliConfig struct {
 	Certificate       string `json:"certificate,omitempty" mapstructure:"certificate"`
 	APIEndpoint       string `json:"api_endpoint,omitempty" mapstructure:"api_endpoint"`
 
+	// authentication
+	AuthenticationMechanism string `json:"auth_mechanism,omitempty" mapstructure:"auth_mechanism"`
+
 	// client features
 	Features []string `json:"features,omitempty" mapstructure:"features"`
 
@@ -66,29 +69,44 @@ func (c *CliConfig) GetFeatures() cnquery.Features {
 	return flags
 }
 
-func (v *CliConfig) GetServiceCredential() *upstream.ServiceAccountCredentials {
+func (c *CliConfig) GetServiceCredential() *upstream.ServiceAccountCredentials {
+	if c.AuthenticationMechanism == "ssh" {
+		log.Info().Msg("using ssh authentication, generate temporary credentials")
+		serviceAccount, err := upstream.ExchangeSSHKey(c.UpstreamApiEndpoint(), c.ServiceAccountMrn, c.GetParentMrn())
+		if err != nil {
+			log.Error().Err(err).Msg("could not exchange ssh key")
+			return nil
+		}
+
+		// data, _ := yaml.Marshal(serviceAccount)
+		// fmt.Println(string(data))
+		log.Info().Msg("successfully exchanged ssh key with service account")
+
+		return serviceAccount
+	}
+
 	return &upstream.ServiceAccountCredentials{
-		Mrn:         v.ServiceAccountMrn,
-		ParentMrn:   v.GetParentMrn(),
-		PrivateKey:  v.PrivateKey,
-		Certificate: v.Certificate,
-		ApiEndpoint: v.APIEndpoint,
+		Mrn:         c.ServiceAccountMrn,
+		ParentMrn:   c.GetParentMrn(),
+		PrivateKey:  c.PrivateKey,
+		Certificate: c.Certificate,
+		ApiEndpoint: c.APIEndpoint,
 	}
 }
 
-func (o *CliConfig) GetParentMrn() string {
-	parent := o.ParentMrn
+func (c *CliConfig) GetParentMrn() string {
+	parent := c.ParentMrn
 
 	// fallback to old space_mrn config
 	if parent == "" {
-		parent = o.SpaceMrn
+		parent = c.SpaceMrn
 	}
 
 	return parent
 }
 
-func (o *CliConfig) UpstreamApiEndpoint() string {
-	apiEndpoint := o.APIEndpoint
+func (c *CliConfig) UpstreamApiEndpoint() string {
+	apiEndpoint := c.APIEndpoint
 
 	// fallback to default api if nothing was set
 	if apiEndpoint == "" {
